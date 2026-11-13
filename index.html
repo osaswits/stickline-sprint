@@ -1,0 +1,2677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Stickline Sprint</title>
+  <meta name="description" content="Stickline Sprint — a portrait-first 2D endless runner through a three-lane rail yard. Switch lanes, jump barriers, slide under beams, and collect tokens." />
+  <meta name="theme-color" content="#162130" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta property="og:title" content="Stickline Sprint" />
+  <meta property="og:description" content="Portrait-first 2D endless runner through a three-lane rail yard. Playable free in any browser." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23162130'/%3E%3Cpath d='M16 54L22 10M48 54L42 10' stroke='%237a8796' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M14 44H50M16 32H48M18 20H46' stroke='%23313d4c' stroke-width='3'/%3E%3Ccircle cx='34' cy='21' r='6' fill='%23f8fafc' stroke='%23101822' stroke-width='2.5'/%3E%3Cpath d='M33 27L29 41M29 41L21 51M29 41L38 49M32 30L22 36M32 30L42 27' stroke='%23f8fafc' stroke-width='3.5' stroke-linecap='round'/%3E%3Cpath d='M31 28Q21 29 15 24' stroke='%23e03e36' stroke-width='4.5' stroke-linecap='round' fill='none'/%3E%3C/svg%3E" />
+  <style>
+    :root {
+      --bg-outer: #0f1722;
+      --bg-frame: #162130;
+      --ink-dark: #101822;
+      --ink-blue: #1e2f44;
+      --concrete-light: #e4e8ec;
+      --concrete-mid: #aeb6bf;
+      --concrete-dark: #5e6a77;
+      --amber: #f0a828;
+      --amber-bright: #ffd166;
+      --scarf-red: #e03e36;
+      --scarf-bright: #ff5d54;
+      --text-main: #f4f6f8;
+      --text-muted: #b5c0cc;
+      --panel-bg: rgba(16, 24, 34, 0.9);
+      --panel-border: rgba(228, 232, 236, 0.18);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 25%, #1d2d42 0%, var(--bg-outer) 72%);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body.playing-lock {
+      overscroll-behavior: none;
+      touch-action: none;
+    }
+
+    .app-shell {
+      width: 100%;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+    }
+
+    .game-frame {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      max-width: 480px;
+      max-height: 920px;
+    }
+
+    @media (min-width: 640px) {
+      .game-frame {
+        height: min(94dvh, 840px);
+        width: auto;
+        aspect-ratio: 420 / 740;
+        border-radius: 18px;
+        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+        background: var(--bg-frame);
+      }
+    }
+
+    .stage-wrap {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-frame);
+      overflow: hidden;
+    }
+
+    canvas#gameCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    /* HUD */
+    .hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 12px 14px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .hud[hidden] {
+      display: none;
+    }
+
+    .hud-stats {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .hud-pill {
+      background: rgba(16, 24, 34, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      backdrop-filter: blur(4px);
+      border-radius: 10px;
+      padding: 6px 11px;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+
+    .hud-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .hud-value {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .hud-value.token-val {
+      color: var(--amber-bright);
+    }
+
+    .hud-actions {
+      display: flex;
+      gap: 6px;
+      pointer-events: auto;
+    }
+
+    .icon-btn {
+      appearance: none;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(16, 24, 34, 0.82);
+      color: var(--text-main);
+      border-radius: 10px;
+      height: 36px;
+      min-width: 36px;
+      padding: 0 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.08s ease, background 0.12s ease, border-color 0.12s ease;
+    }
+
+    .icon-btn:hover {
+      background: rgba(30, 47, 68, 0.94);
+      border-color: rgba(255, 255, 255, 0.35);
+    }
+
+    .icon-btn:active {
+      transform: scale(0.95);
+    }
+
+    .icon-btn:focus-visible,
+    .primary-btn:focus-visible,
+    .secondary-btn:focus-visible,
+    .touch-btn:focus-visible {
+      outline: 3px solid var(--amber-bright);
+      outline-offset: 2px;
+    }
+
+    /* Contextual Cue */
+    .cue-banner {
+      position: absolute;
+      top: 66px;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: calc(100% - 28px);
+      background: rgba(16, 24, 34, 0.86);
+      border: 1px solid rgba(240, 168, 40, 0.65);
+      color: #fff6e0;
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      text-align: center;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 9;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    }
+
+    .cue-banner.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Overlays */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(13, 20, 30, 0.56);
+      backdrop-filter: blur(3px);
+      z-index: 20;
+    }
+
+    .overlay[hidden] {
+      display: none;
+    }
+
+    .overlay.gameover-overlay {
+      align-items: flex-start;
+      padding-top: max(12%, 44px);
+      background: rgba(13, 20, 30, 0.42);
+      backdrop-filter: blur(2px);
+    }
+
+    .card {
+      width: 100%;
+      max-width: 340px;
+      background: var(--panel-bg);
+      border: 1.5px solid var(--panel-border);
+      border-radius: 18px;
+      padding: 22px 20px 20px;
+      text-align: center;
+      box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
+    }
+
+    .brand-tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--amber-bright);
+      background: rgba(240, 168, 40, 0.14);
+      border: 1px solid rgba(240, 168, 40, 0.35);
+      border-radius: 999px;
+      padding: 4px 10px;
+      margin-bottom: 10px;
+    }
+
+    h1.title-heading {
+      margin: 0 0 6px;
+      font-size: 30px;
+      line-height: 1.08;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+    }
+
+    .title-sub {
+      margin: 0 0 16px;
+      font-size: 13.5px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    h2.modal-heading {
+      margin: 0 0 6px;
+      font-size: 25px;
+      font-weight: 900;
+      color: #ffffff;
+    }
+
+    .best-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--amber-bright);
+      margin-bottom: 16px;
+    }
+
+    .new-best-pill {
+      display: inline-block;
+      background: var(--scarf-red);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 999px;
+      margin-bottom: 10px;
+    }
+
+    .new-best-pill[hidden] {
+      display: none;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin: 14px 0 16px;
+    }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 9px 10px;
+    }
+
+    .stat-box-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+
+    .stat-box-val {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .stat-box-val.accent {
+      color: var(--amber-bright);
+    }
+
+    .primary-btn {
+      width: 100%;
+      appearance: none;
+      border: none;
+      border-radius: 12px;
+      padding: 13px 18px;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      color: #101822;
+      background: linear-gradient(180deg, var(--amber-bright) 0%, var(--amber) 100%);
+      box-shadow: 0 6px 0 #a3650d, 0 10px 20px rgba(0, 0, 0, 0.35);
+      cursor: pointer;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.12s ease;
+    }
+
+    .primary-btn:hover {
+      filter: brightness(1.05);
+    }
+
+    .primary-btn:active {
+      transform: translateY(3px);
+      box-shadow: 0 3px 0 #a3650d, 0 5px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .secondary-btn {
+      flex: 1 1 0;
+      appearance: none;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.12s ease, transform 0.08s ease;
+    }
+
+    .secondary-btn:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .secondary-btn:active {
+      transform: scale(0.97);
+    }
+
+    .controls-hint {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .controls-hint strong {
+      color: var(--text-main);
+    }
+
+    /* Optional On-Screen Directional Buttons */
+    .touch-controls {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 12px;
+      padding: 0 14px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 12;
+    }
+
+    .touch-controls[hidden] {
+      display: none;
+    }
+
+    .touch-group {
+      display: flex;
+      gap: 10px;
+      pointer-events: auto;
+    }
+
+    .touch-btn {
+      appearance: none;
+      width: 56px;
+      height: 52px;
+      border-radius: 14px;
+      border: 1.5px solid rgba(255, 255, 255, 0.24);
+      background: rgba(16, 24, 34, 0.68);
+      backdrop-filter: blur(4px);
+      color: #ffffff;
+      font-size: 20px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: none;
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+      transition: transform 0.06s ease, background 0.1s ease;
+    }
+
+    .touch-btn:active,
+    .touch-btn.pressed {
+      transform: scale(0.92);
+      background: rgba(240, 168, 40, 0.85);
+      color: #101822;
+      border-color: var(--amber-bright);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <main class="game-frame" aria-label="Stickline Sprint">
+      <div class="stage-wrap" id="stageWrap">
+        <canvas id="gameCanvas" width="420" height="740" aria-label="Stickline Sprint playfield"></canvas>
+
+        <!-- In-Run HUD -->
+        <header class="hud" id="hud" hidden>
+          <div class="hud-stats">
+            <div class="hud-pill">
+              <span class="hud-label">Score</span>
+              <span class="hud-value" id="hudScore">0</span>
+            </div>
+            <div class="hud-pill">
+              <span class="hud-label">Tokens</span>
+              <span class="hud-value token-val" id="hudTokens">0</span>
+            </div>
+          </div>
+          <div class="hud-actions">
+            <button type="button" class="icon-btn" id="btnTogglePadHud" aria-label="Toggle directional buttons" title="Toggle on-screen buttons">Pad</button>
+            <button type="button" class="icon-btn" id="btnToggleSoundHud" aria-label="Toggle sound" title="Toggle sound">SFX</button>
+            <button type="button" class="icon-btn" id="btnPause" aria-label="Pause game" title="Pause (P or Esc)">II</button>
+          </div>
+        </header>
+
+        <!-- Contextual Non-Blocking Cue -->
+        <div class="cue-banner" id="cueBanner" aria-live="polite"></div>
+
+        <!-- Optional On-Screen Directional Buttons -->
+        <div class="touch-controls" id="touchControls" hidden aria-label="On-screen controls">
+          <div class="touch-group">
+            <button type="button" class="touch-btn" id="btnLeft" aria-label="Move left">◀</button>
+            <button type="button" class="touch-btn" id="btnRight" aria-label="Move right">▶</button>
+          </div>
+          <div class="touch-group">
+            <button type="button" class="touch-btn" id="btnSlide" aria-label="Slide">▼</button>
+            <button type="button" class="touch-btn" id="btnJump" aria-label="Jump">▲</button>
+          </div>
+        </div>
+
+        <!-- Title Overlay -->
+        <section class="overlay" id="titleOverlay" aria-labelledby="titleHeading">
+          <div class="card">
+            <div class="brand-tag">Three-Lane Rail Yard</div>
+            <h1 class="title-heading" id="titleHeading">Stickline Sprint</h1>
+            <p class="title-sub">Switch lanes, leap low barriers, duck under signal beams, and grab rail tokens.</p>
+            <div class="best-chip">Best Score: <span id="titleBestScore">0</span></div>
+            <button type="button" class="primary-btn" id="btnPlay">Play</button>
+            <div class="btn-row">
+              <button type="button" class="secondary-btn" id="btnTogglePadTitle">Buttons: Auto</button>
+              <button type="button" class="secondary-btn" id="btnToggleSoundTitle">Sound: On</button>
+            </div>
+            <div class="controls-hint">
+              <strong>Swipe</strong> or <strong>← → / A D</strong> to switch lanes<br />
+              <strong>↑ / W / Space</strong> jump · <strong>↓ / S</strong> slide
+            </div>
+          </div>
+        </section>
+
+        <!-- Pause Overlay -->
+        <section class="overlay" id="pauseOverlay" aria-labelledby="pauseHeading" hidden>
+          <div class="card">
+            <h2 class="modal-heading" id="pauseHeading">Paused</h2>
+            <p class="title-sub" id="pauseReason">Take a breather on the ties.</p>
+            <button type="button" class="primary-btn" id="btnResume">Resume</button>
+            <div class="btn-row">
+              <button type="button" class="secondary-btn" id="btnRestartFromPause">Restart</button>
+              <button type="button" class="secondary-btn" id="btnTitleFromPause">Title</button>
+            </div>
+            <div class="btn-row">
+              <button type="button" class="secondary-btn" id="btnTogglePadPause">Buttons: Auto</button>
+              <button type="button" class="secondary-btn" id="btnToggleSoundPause">Sound: On</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Game Over Overlay -->
+        <section class="overlay gameover-overlay" id="gameOverOverlay" aria-labelledby="gameOverHeading" hidden>
+          <div class="card">
+            <div class="new-best-pill" id="newBestBadge" hidden>New Best!</div>
+            <h2 class="modal-heading" id="gameOverHeading">Derailed!</h2>
+            <div class="stats-grid">
+              <div class="stat-box">
+                <div class="stat-box-label">Score</div>
+                <div class="stat-box-val" id="goScore">0</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-box-label">Best</div>
+                <div class="stat-box-val accent" id="goBest">0</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-box-label">Distance</div>
+                <div class="stat-box-val" id="goDistance">0</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-box-label">Tokens</div>
+                <div class="stat-box-val accent" id="goTokens">0</div>
+              </div>
+            </div>
+            <button type="button" class="primary-btn" id="btnRetry">Retry</button>
+            <div class="btn-row">
+              <button type="button" class="secondary-btn" id="btnTitleFromGameOver">Title</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // =========================================================================
+      // === 1. CONFIGURATION ===
+      // =========================================================================
+      const CONFIG = {
+        logicalWidth: 420,
+        logicalHeight: 740,
+        trackLeft: 42,
+        trackRight: 378,
+        laneCount: 3,
+        runnerY: 556,
+        fixedDt: 1 / 120,
+        stepEps: 1e-9,
+        maxFrameDt: 0.05,
+
+        // Speed & distance pacing
+        baseSpeed: 245,         // logical px/s
+        maxSpeed: 450,          // tunable speed cap (lookahead = 556/450 = 1.235s)
+        speedRampPerSec: 3.4,   // px/s gained per second of run
+        pxPerDistanceUnit: 20,  // 1 point per distance unit
+        tokenScore: 10,         // 10 points per token
+
+        // Runner kinematics
+        laneSwitchTime: 0.125,  // seconds for one lane shift
+        jumpVelocity: 690,      // px/s upward
+        gravity: 2150,          // px/s^2 downward -> peak ~110.7px, air time ~0.642s
+        slideDuration: 0.52,    // fixed slide duration in seconds
+        landSquashTime: 0.11,   // landing compression pose duration
+        runnerHalfWidth: 14,
+        runnerHalfDepth: 11,
+        runnerStandHeight: 58,
+        runnerSlideHeight: 24,
+
+        // Obstacle dimensions & hitboxes
+        barrierHalfWidth: 34,
+        barrierDepth: 22,
+        barrierHeight: 44,      // jumpable (peak is ~110.7px)
+        beamHalfWidth: 37,
+        beamDepth: 24,
+        beamUnderClearance: 34, // slide height is 24px <= 34px; standing 58px collides
+        beamTopHeight: 96,
+        trainHalfWidth: 39,
+        trainHeight: 126,       // taller than jump peak (~110.7px), must dodge
+        tokenRadius: 12,
+        tokenGrabRadius: 28,
+
+        // Opening & fairness
+        openingSafeSec: 2.0,
+        minLookaheadSec: 1.2,
+        minGapSecAtCap: 0.62,
+        maxGapSecAtStart: 1.05,
+        reachabilityLaneMargin: 0.03,
+        jumpTriggerBuffer: 0.07,
+        slideTriggerBuffer: 0.06,
+        recoveryMargin: 0.08,
+
+        // Storage & input
+        storageKey: 'stickline_sprint_best_v1',
+        swipeThresholdPx: 24
+      };
+
+      const LANE_WIDTH = (CONFIG.trackRight - CONFIG.trackLeft) / CONFIG.laneCount;
+      const LANE_CENTERS = [0, 1, 2].map(function (i) {
+        return CONFIG.trackLeft + LANE_WIDTH * (i + 0.5);
+      });
+
+      const PALETTE = {
+        skyConcrete: '#dfe4e8',
+        ballast: '#202d3d',
+        ballastDark: '#172230',
+        tieWood: '#313d4c',
+        railSteel: '#7a8796',
+        railHighlight: '#b9c3ce',
+        platformConcrete: '#adb6c0',
+        platformEdge: '#5b6673',
+        ink: '#101822',
+        inkBlue: '#1f334a',
+        amber: '#f0a828',
+        amberBright: '#ffd166',
+        amberDark: '#b87110',
+        scarf: '#e03e36',
+        scarfBright: '#ff5d54',
+        trainBody: '#283d55',
+        trainRoof: '#3a5370',
+        trainStripe: '#f0a828'
+      };
+
+      // =========================================================================
+      // === 2. PRNG, STORAGE & AUDIO HELPERS ===
+      // =========================================================================
+      function createRng(seed) {
+        var s = (seed >>> 0) || 1;
+        return function nextFloat() {
+          s = (s + 0x6D2B79F5) | 0;
+          var t = Math.imul(s ^ (s >>> 15), 1 | s);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      function readBestScore() {
+        try {
+          var raw = window.localStorage.getItem(CONFIG.storageKey);
+          var n = raw ? parseInt(raw, 10) : 0;
+          return Number.isFinite(n) && n > 0 ? n : 0;
+        } catch (err) {
+          return 0;
+        }
+      }
+
+      function writeBestScore(score) {
+        try {
+          window.localStorage.setItem(CONFIG.storageKey, String(Math.floor(score)));
+          return true;
+        } catch (err) {
+          return false;
+        }
+      }
+
+      // Lightweight procedural Web Audio cues (offline-safe, graceful no-op if muted/blocked)
+      var audioCtx = null;
+      function playSound(kind) {
+        if (!uiState.soundEnabled) return;
+        try {
+          var AudioCtor = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtor) return;
+          if (!audioCtx) audioCtx = new AudioCtor();
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(function () {});
+          }
+          var now = audioCtx.currentTime;
+          var osc = audioCtx.createOscillator();
+          var gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          if (kind === 'jump') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(240, now);
+            osc.frequency.exponentialRampToValueAtTime(520, now + 0.11);
+            gain.gain.setValueAtTime(0.08, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+            osc.start(now);
+            osc.stop(now + 0.13);
+          } else if (kind === 'slide') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(320, now);
+            osc.frequency.exponentialRampToValueAtTime(140, now + 0.12);
+            gain.gain.setValueAtTime(0.07, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+            osc.start(now);
+            osc.stop(now + 0.14);
+          } else if (kind === 'lane') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(360, now);
+            osc.frequency.exponentialRampToValueAtTime(430, now + 0.05);
+            gain.gain.setValueAtTime(0.04, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+            osc.start(now);
+            osc.stop(now + 0.07);
+          } else if (kind === 'token') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(660, now);
+            osc.frequency.setValueAtTime(880, now + 0.05);
+            gain.gain.setValueAtTime(0.07, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+            osc.start(now);
+            osc.stop(now + 0.15);
+          } else if (kind === 'crash') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(160, now);
+            osc.frequency.exponentialRampToValueAtTime(48, now + 0.24);
+            gain.gain.setValueAtTime(0.12, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+            osc.start(now);
+            osc.stop(now + 0.27);
+          }
+        } catch (err) {
+          // Ignore audio errors
+        }
+      }
+
+      // =========================================================================
+      // === 3. OBSTACLE GENERATION & REACHABILITY VERIFIER ===
+      // =========================================================================
+      // Pattern items specify: { lane: 0|1|2, yOffset: number, kind: 'barrier'|'beam'|'train', length?: number }
+      // Token trails specify: { lane: 0|1|2, yOffset: number, count: number, spacing: number, zArc?: boolean }
+      const PATTERNS = [
+        // Onboarding single-obstacle patterns
+        {
+          id: 'intro-barrier',
+          tier: 'intro-barrier',
+          rows: [{ yOffset: 0, cells: [null, 'barrier', null] }],
+          trails: [{ lane: 1, yOffset: -24, count: 3, spacing: 34, zArc: true }]
+        },
+        {
+          id: 'intro-beam',
+          tier: 'intro-beam',
+          rows: [{ yOffset: 0, cells: [null, 'beam', null] }],
+          trails: [{ lane: 1, yOffset: -24, count: 3, spacing: 36, zArc: false }]
+        },
+        {
+          id: 'intro-train',
+          tier: 'intro-train',
+          rows: [{ yOffset: 0, cells: [null, 'train', null], trainLen: 210 }],
+          trails: [
+            { lane: 0, yOffset: 20, count: 4, spacing: 44, zArc: false },
+            { lane: 2, yOffset: 20, count: 4, spacing: 44, zArc: false }
+          ]
+        },
+
+        // Tier 1: gentle single & double obstacles
+        {
+          id: 'barrier-left',
+          tier: 1,
+          rows: [{ yOffset: 0, cells: ['barrier', null, null] }],
+          trails: [{ lane: 0, yOffset: -20, count: 3, spacing: 34, zArc: true }]
+        },
+        {
+          id: 'barrier-right',
+          tier: 1,
+          rows: [{ yOffset: 0, cells: [null, null, 'barrier'] }],
+          trails: [{ lane: 2, yOffset: -20, count: 3, spacing: 34, zArc: true }]
+        },
+        {
+          id: 'beam-left',
+          tier: 1,
+          rows: [{ yOffset: 0, cells: ['beam', null, null] }],
+          trails: [{ lane: 0, yOffset: -18, count: 3, spacing: 34, zArc: false }]
+        },
+        {
+          id: 'beam-right',
+          tier: 1,
+          rows: [{ yOffset: 0, cells: [null, null, 'beam'] }],
+          trails: [{ lane: 2, yOffset: -18, count: 3, spacing: 34, zArc: false }]
+        },
+        {
+          id: 'train-left',
+          tier: 1,
+          rows: [{ yOffset: 0, cells: ['train', null, null], trainLen: 220 }],
+          trails: [{ lane: 1, yOffset: 20, count: 4, spacing: 46, zArc: false }]
+        },
+        {
+          id: 'train-right',
+          tier: 1,
+          rows: [{ yOffset: 0, cells: [null, null, 'train'], trainLen: 220 }],
+          trails: [{ lane: 1, yOffset: 20, count: 4, spacing: 46, zArc: false }]
+        },
+        {
+          id: 'barrier-pair-lr',
+          tier: 1,
+          rows: [{ yOffset: 0, cells: ['barrier', null, 'barrier'] }],
+          trails: [{ lane: 1, yOffset: -20, count: 3, spacing: 38, zArc: false }]
+        },
+        {
+          id: 'beam-pair-lc',
+          tier: 1,
+          rows: [{ yOffset: 0, cells: ['beam', 'beam', null] }],
+          trails: [{ lane: 2, yOffset: -20, count: 3, spacing: 38, zArc: false }]
+        },
+
+        // Tier 2: three-lane puzzles & dual trains
+        {
+          id: 'dual-train-lc',
+          tier: 2,
+          rows: [{ yOffset: 0, cells: ['train', 'train', null], trainLen: 240 }],
+          trails: [{ lane: 2, yOffset: 25, count: 5, spacing: 42, zArc: false }]
+        },
+        {
+          id: 'dual-train-cr',
+          tier: 2,
+          rows: [{ yOffset: 0, cells: [null, 'train', 'train'], trainLen: 240 }],
+          trails: [{ lane: 0, yOffset: 25, count: 5, spacing: 42, zArc: false }]
+        },
+        {
+          id: 'dual-train-lr',
+          tier: 2,
+          rows: [{ yOffset: 0, cells: ['train', null, 'train'], trainLen: 240 }],
+          trails: [{ lane: 1, yOffset: 25, count: 5, spacing: 42, zArc: false }]
+        },
+        {
+          id: 'train-l-barrier-c',
+          tier: 2,
+          rows: [{ yOffset: 0, cells: ['train', 'barrier', null], trainLen: 220 }],
+          trails: [{ lane: 1, yOffset: -20, count: 3, spacing: 34, zArc: true }]
+        },
+        {
+          id: 'train-r-beam-c',
+          tier: 2,
+          rows: [{ yOffset: 0, cells: [null, 'beam', 'train'], trainLen: 220 }],
+          trails: [{ lane: 1, yOffset: -18, count: 3, spacing: 36, zArc: false }]
+        },
+        {
+          id: 'train-c-barrier-l-beam-r',
+          tier: 2,
+          rows: [{ yOffset: 0, cells: ['barrier', 'train', 'beam'], trainLen: 220 }],
+          trails: [{ lane: 0, yOffset: -20, count: 3, spacing: 34, zArc: true }]
+        },
+        {
+          id: 'barrier-wall',
+          tier: 2,
+          rows: [{ yOffset: 0, cells: ['barrier', 'barrier', 'barrier'] }],
+          trails: [{ lane: 1, yOffset: -20, count: 3, spacing: 34, zArc: true }]
+        },
+        {
+          id: 'beam-wall',
+          tier: 2,
+          rows: [{ yOffset: 0, cells: ['beam', 'beam', 'beam'] }],
+          trails: [{ lane: 1, yOffset: -18, count: 3, spacing: 36, zArc: false }]
+        },
+
+        // Tier 3: chained 2-row sequences & slaloms
+        {
+          id: 'slalom-lr',
+          tier: 3,
+          rows: [
+            { yOffset: 0, cells: ['train', 'train', null], trainLen: 210 },
+            { yOffset: 340, cells: [null, 'train', 'train'], trainLen: 210 }
+          ],
+          trails: [
+            { lane: 2, yOffset: 25, count: 3, spacing: 44, zArc: false },
+            { lane: 0, yOffset: 365, count: 3, spacing: 44, zArc: false }
+          ]
+        },
+        {
+          id: 'slalom-rl',
+          tier: 3,
+          rows: [
+            { yOffset: 0, cells: [null, 'train', 'train'], trainLen: 210 },
+            { yOffset: 340, cells: ['train', 'train', null], trainLen: 210 }
+          ],
+          trails: [
+            { lane: 0, yOffset: 25, count: 3, spacing: 44, zArc: false },
+            { lane: 2, yOffset: 365, count: 3, spacing: 44, zArc: false }
+          ]
+        },
+        {
+          id: 'jump-then-slide-center',
+          tier: 3,
+          rows: [
+            { yOffset: 0, cells: ['train', 'barrier', 'train'], trainLen: 240 },
+            { yOffset: 295, cells: ['train', 'beam', 'train'], trainLen: 190 }
+          ],
+          trails: [
+            { lane: 1, yOffset: -20, count: 3, spacing: 34, zArc: true },
+            { lane: 1, yOffset: 275, count: 3, spacing: 34, zArc: false }
+          ]
+        },
+        {
+          id: 'dodge-then-jump',
+          tier: 3,
+          rows: [
+            { yOffset: 0, cells: ['train', 'train', null], trainLen: 220 },
+            { yOffset: 280, cells: [null, 'beam', 'barrier'] }
+          ],
+          trails: [{ lane: 2, yOffset: 260, count: 3, spacing: 34, zArc: true }]
+        },
+        {
+          id: 'mix-alternating',
+          tier: 3,
+          rows: [
+            { yOffset: 0, cells: ['barrier', 'beam', 'barrier'] },
+            { yOffset: 285, cells: ['beam', 'barrier', 'beam'] }
+          ],
+          trails: [{ lane: 1, yOffset: 120, count: 3, spacing: 42, zArc: false }]
+        }
+      ];
+
+      const SAFE_BREATHER_PATTERN = {
+        id: 'breather-open',
+        tier: 0,
+        rows: [{ yOffset: 0, cells: [null, null, null] }],
+        trails: [{ lane: 1, yOffset: 0, count: 3, spacing: 42, zArc: false }]
+      };
+
+      function getPatternLength(pattern) {
+        var maxEnd = 40;
+        for (var i = 0; i < pattern.rows.length; i++) {
+          var r = pattern.rows[i];
+          var rowLen = r.trainLen ? r.trainLen : 40;
+          if (r.yOffset + rowLen > maxEnd) maxEnd = r.yOffset + rowLen;
+        }
+        return maxEnd;
+      }
+
+      /**
+       * Verifies at least one traversable route exists from prevExitCooldowns[0..2]
+       * through every row of `pattern` at `speed`, accounting for lane-change time,
+       * jump/slide duration, and recovery margins.
+       * Returns null if unreachable, or an array [cool0, cool1, cool2] of exit cooldowns.
+       */
+      function verifyPatternReachability(pattern, prevExitCooldowns, gapPx, speed) {
+        var jumpDur = (2 * CONFIG.jumpVelocity) / CONFIG.gravity;
+        var currentCooldowns = prevExitCooldowns.slice();
+        var prevOffset = -gapPx;
+
+        for (var rIdx = 0; rIdx < pattern.rows.length; rIdx++) {
+          var row = pattern.rows[rIdx];
+          var travelPx = row.yOffset - prevOffset;
+          var travelTime = travelPx / speed;
+          var nextCooldowns = [Infinity, Infinity, Infinity];
+
+          for (var laneIn = 0; laneIn < 3; laneIn++) {
+            var entryCool = currentCooldowns[laneIn];
+            if (!Number.isFinite(entryCool)) continue;
+
+            for (var laneOut = 0; laneOut < 3; laneOut++) {
+              var cell = row.cells[laneOut];
+              if (cell === 'train') continue; // Trains block the lane completely
+
+              var shifts = Math.abs(laneOut - laneIn);
+              var switchTime = shifts * (CONFIG.laneSwitchTime + CONFIG.reachabilityLaneMargin);
+              var switchMargin = shifts > 0 ? 0.04 : 0;
+              var usable = travelTime - entryCool - switchTime - switchMargin;
+
+              if (cell === null) {
+                if (usable >= 0) {
+                  nextCooldowns[laneOut] = Math.min(nextCooldowns[laneOut], 0);
+                }
+              } else if (cell === 'barrier') {
+                if (usable >= CONFIG.jumpTriggerBuffer) {
+                  var postJumpCool = jumpDur * 0.72 + CONFIG.recoveryMargin;
+                  nextCooldowns[laneOut] = Math.min(nextCooldowns[laneOut], postJumpCool);
+                }
+              } else if (cell === 'beam') {
+                if (usable >= CONFIG.slideTriggerBuffer) {
+                  var postSlideCool = CONFIG.slideDuration + CONFIG.recoveryMargin;
+                  nextCooldowns[laneOut] = Math.min(nextCooldowns[laneOut], postSlideCool);
+                }
+              }
+            }
+          }
+
+          var anyReachable = false;
+          for (var l = 0; l < 3; l++) {
+            if (Number.isFinite(nextCooldowns[l])) {
+              anyReachable = true;
+              break;
+            }
+          }
+          if (!anyReachable) return null;
+
+          currentCooldowns = nextCooldowns;
+          // If row has a train in another lane, the next row is measured from row.yOffset
+          // (Wait: if a lane was clear beside a train, cooldown is still 0 at row.yOffset;
+          // if row 1 is past trainLen, travelPx includes train clearance naturally).
+          prevOffset = row.yOffset;
+        }
+
+        // Convert cooldowns at last row to remaining cooldown after pattern's tail length
+        var patternEnd = getPatternLength(pattern);
+        var tailTime = Math.max(0, patternEnd - prevOffset) / speed;
+        var exitCooldowns = [Infinity, Infinity, Infinity];
+        for (var k = 0; k < 3; k++) {
+          if (Number.isFinite(currentCooldowns[k])) {
+            exitCooldowns[k] = Math.max(0, currentCooldowns[k] - tailTime);
+          }
+        }
+        return exitCooldowns;
+      }
+
+      function computeGapSec(difficulty01, rng) {
+        var base = CONFIG.maxGapSecAtStart - difficulty01 * (CONFIG.maxGapSecAtStart - CONFIG.minGapSecAtCap);
+        var jitter = (rng() - 0.5) * 0.12;
+        return Math.max(CONFIG.minGapSecAtCap, base + jitter);
+      }
+
+      /**
+       * Runs a deterministic seeded fairness verification at maxSpeed over `count` patterns.
+       * Exposed for automated verification and console diagnostics.
+       */
+      function runSeededFairnessCheck(seed, count) {
+        var rng = createRng(seed || 20261113);
+        var n = count || 120;
+        var exitCooldowns = [0, 0, 0];
+        var speed = CONFIG.maxSpeed;
+        var passed = 0;
+        var fallbacks = 0;
+        var lookaheadSec = CONFIG.runnerY / CONFIG.maxSpeed;
+
+        for (var i = 0; i < n; i++) {
+          var difficulty01 = Math.min(1, i / 40);
+          var gapSec = computeGapSec(difficulty01, rng);
+          var gapPx = gapSec * speed;
+          var pool = PATTERNS.filter(function (p) {
+            return typeof p.tier === 'number';
+          });
+          var startIdx = Math.floor(rng() * pool.length);
+          var accepted = null;
+          var nextExit = null;
+
+          for (var attempt = 0; attempt < pool.length; attempt++) {
+            var candidate = pool[(startIdx + attempt) % pool.length];
+            var res = verifyPatternReachability(candidate, exitCooldowns, gapPx, speed);
+            if (res) {
+              accepted = candidate;
+              nextExit = res;
+              break;
+            }
+          }
+
+          if (!accepted) {
+            accepted = SAFE_BREATHER_PATTERN;
+            nextExit = verifyPatternReachability(accepted, exitCooldowns, gapPx, speed);
+            fallbacks++;
+          }
+
+          if (!nextExit || !nextExit.some(Number.isFinite)) {
+            return {
+              ok: false,
+              seed: seed,
+              failedAt: i,
+              lookaheadSec: lookaheadSec
+            };
+          }
+          exitCooldowns = nextExit;
+          passed++;
+        }
+
+        return {
+          ok: true,
+          seed: seed,
+          patternsChecked: passed,
+          fallbacks: fallbacks,
+          speedTested: speed,
+          lookaheadSec: lookaheadSec,
+          minLookaheadMet: lookaheadSec >= CONFIG.minLookaheadSec
+        };
+      }
+
+      // =========================================================================
+      // === 4. GAME STATE & INPUT ===
+      // =========================================================================
+      const uiState = {
+        padMode: 'auto', // 'auto' | 'on' | 'off'
+        soundEnabled: true,
+        bestScore: readBestScore(),
+        isNewBest: false,
+        pauseReason: 'Take a breather on the ties.'
+      };
+
+      function isTouchEnvironment() {
+        return (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ||
+          window.innerWidth <= 540 ||
+          ('ontouchstart' in window && navigator.maxTouchPoints > 0);
+      }
+
+      function shouldShowPad() {
+        if (uiState.padMode === 'on') return true;
+        if (uiState.padMode === 'off') return false;
+        return isTouchEnvironment();
+      }
+
+      const sim = {
+        mode: 'title', // 'title' | 'playing' | 'paused' | 'gameover'
+        seed: null,
+        rng: createRng(Date.now()),
+        elapsedRunSec: 0,
+        speed: CONFIG.baseSpeed,
+        worldScrollPx: 0,
+        distance: 0,
+        tokens: 0,
+        score: 0,
+        stepCount: 0,
+
+        runner: {
+          lane: 1,
+          targetLane: 1,
+          x: LANE_CENTERS[1],
+          switchStartX: LANE_CENTERS[1],
+          switchTimer: 0,
+          isSwitching: false,
+          z: 0,
+          vz: 0,
+          isGrounded: true,
+          slideTimer: 0,
+          isSliding: false,
+          landSquashTimer: 0,
+          sprintPhase: 0,
+          crashTimer: 0,
+          scarfPoints: []
+        },
+
+        obstacles: [],
+        collectibles: [],
+        particles: [],
+        nextSpawnDistPx: 0,
+        exitCooldowns: [0, 0, 0],
+        patternStep: 0,
+        introStage: 0,
+        cueText: '',
+        cueTimer: 0,
+        screenShake: 0,
+        nextObstacleId: 1
+      };
+
+      function resetScarfPoints() {
+        sim.runner.scarfPoints = [];
+        for (var i = 0; i < 6; i++) {
+          sim.runner.scarfPoints.push({
+            x: sim.runner.x,
+            y: CONFIG.runnerY - 40 + i * 7
+          });
+        }
+      }
+
+      function showCue(text, duration) {
+        sim.cueText = text;
+        sim.cueTimer = duration || 2.3;
+        syncCueDom();
+      }
+
+      function queueAction(action) {
+        if (sim.mode !== 'playing') return;
+        var r = sim.runner;
+
+        if (action === 'left') {
+          if (r.targetLane > 0) {
+            r.targetLane -= 1;
+            r.lane = r.targetLane;
+            r.switchStartX = r.x;
+            r.switchTimer = 0;
+            r.isSwitching = true;
+            playSound('lane');
+          }
+        } else if (action === 'right') {
+          if (r.targetLane < CONFIG.laneCount - 1) {
+            r.targetLane += 1;
+            r.lane = r.targetLane;
+            r.switchStartX = r.x;
+            r.switchTimer = 0;
+            r.isSwitching = true;
+            playSound('lane');
+          }
+        } else if (action === 'jump') {
+          if (r.isGrounded) {
+            r.isGrounded = false;
+            r.vz = CONFIG.jumpVelocity;
+            r.isSliding = false;
+            r.slideTimer = 0;
+            r.landSquashTimer = 0;
+            spawnDustBurst(r.x, CONFIG.runnerY, 6);
+            playSound('jump');
+          }
+        } else if (action === 'slide') {
+          if (r.isGrounded && !r.isSliding) {
+            r.isSliding = true;
+            r.slideTimer = CONFIG.slideDuration;
+            r.landSquashTimer = 0;
+            spawnDustBurst(r.x, CONFIG.runnerY, 4);
+            playSound('slide');
+          }
+        }
+      }
+
+      function setupInput() {
+        window.addEventListener('keydown', function (e) {
+          var code = e.code;
+          var key = e.key;
+
+          if (sim.mode === 'playing') {
+            var handled = true;
+            if (code === 'ArrowLeft' || code === 'KeyA') {
+              if (!e.repeat) queueAction('left');
+            } else if (code === 'ArrowRight' || code === 'KeyD') {
+              if (!e.repeat) queueAction('right');
+            } else if (code === 'ArrowUp' || code === 'KeyW' || code === 'Space') {
+              if (!e.repeat) queueAction('jump');
+            } else if (code === 'ArrowDown' || code === 'KeyS') {
+              if (!e.repeat) queueAction('slide');
+            } else if (code === 'KeyP' || code === 'Escape') {
+              if (!e.repeat) pauseGame('Paused by player.');
+            } else {
+              handled = false;
+            }
+            if (handled) {
+              e.preventDefault();
+            }
+          } else if (sim.mode === 'paused') {
+            if ((code === 'KeyP' || code === 'Escape') && !e.repeat) {
+              e.preventDefault();
+              resumeGame();
+            }
+          } else if (sim.mode === 'gameover') {
+            if ((code === 'KeyR') && !e.repeat) {
+              e.preventDefault();
+              startNewRun();
+            }
+          }
+          // Ignore key === 'Unidentified' fallback warnings
+          void key;
+        }, { passive: false });
+
+        // Swipe handling on the stage/canvas
+        var stage = document.getElementById('stageWrap');
+        var activeTouchId = null;
+        var touchStartX = 0;
+        var touchStartY = 0;
+        var gestureConsumed = false;
+
+        stage.addEventListener('touchstart', function (e) {
+          if (sim.mode !== 'playing') return;
+          if (e.target && e.target.closest && e.target.closest('button')) return;
+          if (activeTouchId === null && e.changedTouches.length > 0) {
+            var t = e.changedTouches[0];
+            activeTouchId = t.identifier;
+            touchStartX = t.clientX;
+            touchStartY = t.clientY;
+            gestureConsumed = false;
+            e.preventDefault();
+          }
+        }, { passive: false });
+
+        stage.addEventListener('touchmove', function (e) {
+          if (sim.mode !== 'playing' || activeTouchId === null) return;
+          e.preventDefault();
+          if (gestureConsumed) return;
+
+          for (var i = 0; i < e.changedTouches.length; i++) {
+            var t = e.changedTouches[i];
+            if (t.identifier !== activeTouchId) continue;
+
+            var dx = t.clientX - touchStartX;
+            var dy = t.clientY - touchStartY;
+            var absX = Math.abs(dx);
+            var absY = Math.abs(dy);
+
+            if (Math.max(absX, absY) >= CONFIG.swipeThresholdPx) {
+              gestureConsumed = true;
+              if (absX > absY) {
+                queueAction(dx < 0 ? 'left' : 'right');
+              } else {
+                queueAction(dy < 0 ? 'jump' : 'slide');
+              }
+            }
+            break;
+          }
+        }, { passive: false });
+
+        function endTouch(e) {
+          if (activeTouchId === null) return;
+          for (var i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === activeTouchId) {
+              activeTouchId = null;
+              gestureConsumed = false;
+              break;
+            }
+          }
+        }
+
+        stage.addEventListener('touchend', endTouch, { passive: true });
+        stage.addEventListener('touchcancel', endTouch, { passive: true });
+
+        // Also support pointer drag swipes for desktop/mouse testing if someone drags on canvas
+        var pointerDown = false;
+        var pointerStartX = 0;
+        var pointerStartY = 0;
+        var pointerConsumed = false;
+        var canvasEl = document.getElementById('gameCanvas');
+
+        canvasEl.addEventListener('pointerdown', function (e) {
+          if (sim.mode !== 'playing' || e.pointerType === 'touch') return;
+          pointerDown = true;
+          pointerStartX = e.clientX;
+          pointerStartY = e.clientY;
+          pointerConsumed = false;
+        });
+
+        canvasEl.addEventListener('pointermove', function (e) {
+          if (!pointerDown || pointerConsumed || sim.mode !== 'playing' || e.pointerType === 'touch') return;
+          var dx = e.clientX - pointerStartX;
+          var dy = e.clientY - pointerStartY;
+          if (Math.max(Math.abs(dx), Math.abs(dy)) >= CONFIG.swipeThresholdPx) {
+            pointerConsumed = true;
+            if (Math.abs(dx) > Math.abs(dy)) {
+              queueAction(dx < 0 ? 'left' : 'right');
+            } else {
+              queueAction(dy < 0 ? 'jump' : 'slide');
+            }
+          }
+        });
+
+        window.addEventListener('pointerup', function () {
+          pointerDown = false;
+          pointerConsumed = false;
+        });
+
+        // On-screen directional buttons (fire immediately on pointerdown/touchstart or click)
+        function bindPadButton(id, action) {
+          var btn = document.getElementById(id);
+          var lastTriggerTs = -1;
+          btn.addEventListener('pointerdown', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            lastTriggerTs = e.timeStamp;
+            btn.classList.add('pressed');
+            queueAction(action);
+          });
+          btn.addEventListener('pointerup', function () {
+            btn.classList.remove('pressed');
+          });
+          btn.addEventListener('pointercancel', function () {
+            btn.classList.remove('pressed');
+          });
+          btn.addEventListener('pointerleave', function () {
+            btn.classList.remove('pressed');
+          });
+          btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            // Trigger if activated via keyboard Space/Enter (pointerdown didn't fire)
+            if (e.detail === 0 || Math.abs(e.timeStamp - lastTriggerTs) > 250) {
+              queueAction(action);
+            }
+          });
+        }
+
+        bindPadButton('btnLeft', 'left');
+        bindPadButton('btnRight', 'right');
+        bindPadButton('btnJump', 'jump');
+        bindPadButton('btnSlide', 'slide');
+      }
+
+      // =========================================================================
+      // === 5. SIMULATION ===
+      // =========================================================================
+      function spawnDustBurst(x, y, count) {
+        for (var i = 0; i < count; i++) {
+          var angle = -Math.PI * 0.15 - sim.rng() * Math.PI * 0.7;
+          var spd = 35 + sim.rng() * 75;
+          sim.particles.push({
+            x: x + (sim.rng() - 0.5) * 14,
+            y: y + (sim.rng() - 0.5) * 6,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd * 0.5 + 30,
+            life: 0.25 + sim.rng() * 0.18,
+            maxLife: 0.4,
+            size: 2.5 + sim.rng() * 3,
+            color: '#c6ced6'
+          });
+        }
+      }
+
+      function spawnCrashSparks(x, y) {
+        for (var i = 0; i < 18; i++) {
+          var angle = sim.rng() * Math.PI * 2;
+          var spd = 70 + sim.rng() * 190;
+          sim.particles.push({
+            x: x,
+            y: y,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd,
+            life: 0.35 + sim.rng() * 0.3,
+            maxLife: 0.65,
+            size: 2.5 + sim.rng() * 3.5,
+            color: i % 2 === 0 ? PALETTE.amberBright : PALETTE.scarfBright
+          });
+        }
+      }
+
+      function spawnPatternAtTop(pattern) {
+        var len = getPatternLength(pattern);
+        // Place pattern just above top of visible screen so front edge enters at y = 0
+        // Note: row yOffset=0 is the earliest edge the runner meets (closest to bottom, i.e., largest Y),
+        // and larger yOffset is further UP the track (smaller Y, arriving later)!
+        // Let frontY = -30 so it enters top smoothly with full lookahead (> 560px to runner).
+        var frontY = -36;
+
+        for (var r = 0; r < pattern.rows.length; r++) {
+          var row = pattern.rows[r];
+          var rowFrontY = frontY - row.yOffset;
+          for (var lane = 0; lane < 3; lane++) {
+            var kind = row.cells[lane];
+            if (!kind) continue;
+            var objLen = kind === 'train' ? (row.trainLen || 220) : (kind === 'barrier' ? CONFIG.barrierDepth : CONFIG.beamDepth);
+            sim.obstacles.push({
+              id: sim.nextObstacleId++,
+              lane: lane,
+              x: LANE_CENTERS[lane],
+              y: rowFrontY, // front (bottom-most) edge of obstacle
+              length: objLen,
+              kind: kind
+            });
+          }
+        }
+
+        if (pattern.trails) {
+          for (var t = 0; t < pattern.trails.length; t++) {
+            var trail = pattern.trails[t];
+            for (var c = 0; c < trail.count; c++) {
+              var ty = frontY - trail.yOffset - c * trail.spacing;
+              var tz = 12;
+              if (trail.zArc) {
+                var frac = trail.count > 1 ? c / (trail.count - 1) : 0.5;
+                tz = 20 + Math.sin(frac * Math.PI) * 58;
+              }
+              sim.collectibles.push({
+                lane: trail.lane,
+                x: LANE_CENTERS[trail.lane],
+                y: ty,
+                z: tz,
+                collected: false,
+                spinPhase: c * 0.65
+              });
+            }
+          }
+        }
+
+        return len;
+      }
+
+      function spawnOpeningTokenTrail() {
+        // First 2 seconds clear route: spawn inviting center/side token trail ahead of runner
+        var startY = 300;
+        for (var i = 0; i < 5; i++) {
+          sim.collectibles.push({
+            lane: 1,
+            x: LANE_CENTERS[1],
+            y: startY - i * 48,
+            z: 14,
+            collected: false,
+            spinPhase: i * 0.5
+          });
+        }
+      }
+
+      function spawnNextScheduledPattern() {
+        var difficulty01 = Math.min(1, (sim.speed - CONFIG.baseSpeed) / (CONFIG.maxSpeed - CONFIG.baseSpeed));
+        var gapSec = computeGapSec(difficulty01, sim.rng);
+        var gapPx = gapSec * sim.speed;
+
+        var chosen = null;
+        var nextCooldowns = null;
+
+        // Progressive onboarding: introduce one obstacle type at a time
+        if (sim.introStage === 0) {
+          chosen = PATTERNS.find(function (p) { return p.id === 'intro-barrier'; });
+          sim.introStage = 1;
+          showCue('Jump ↑ / W / Space or Swipe Up over barriers', 2.4);
+        } else if (sim.introStage === 1) {
+          chosen = PATTERNS.find(function (p) { return p.id === 'intro-beam'; });
+          sim.introStage = 2;
+          showCue('Slide ↓ / S or Swipe Down under beams', 2.4);
+        } else if (sim.introStage === 2) {
+          chosen = PATTERNS.find(function (p) { return p.id === 'intro-train'; });
+          sim.introStage = 3;
+          showCue('Switch lanes ← → / A D to dodge trains!', 2.4);
+        }
+
+        if (chosen) {
+          nextCooldowns = verifyPatternReachability(chosen, sim.exitCooldowns, gapPx, sim.speed);
+        }
+
+        if (!nextCooldowns) {
+          var maxTier = sim.patternStep < 6 ? 1 : (sim.patternStep < 14 ? 2 : 3);
+          var pool = PATTERNS.filter(function (p) {
+            return typeof p.tier === 'number' && p.tier <= maxTier;
+          });
+          var startIdx = Math.floor(sim.rng() * pool.length);
+
+          for (var i = 0; i < pool.length; i++) {
+            var candidate = pool[(startIdx + i) % pool.length];
+            var res = verifyPatternReachability(candidate, sim.exitCooldowns, gapPx, sim.speed);
+            if (res) {
+              chosen = candidate;
+              nextCooldowns = res;
+              break;
+            }
+          }
+        }
+
+        if (!nextCooldowns) {
+          chosen = SAFE_BREATHER_PATTERN;
+          nextCooldowns = verifyPatternReachability(chosen, sim.exitCooldowns, gapPx, sim.speed) || [0, 0, 0];
+        }
+
+        var patternLen = spawnPatternAtTop(chosen);
+        sim.exitCooldowns = nextCooldowns;
+        sim.patternStep += 1;
+        sim.nextSpawnDistPx = patternLen + gapPx;
+      }
+
+      function easeOutCubic(t) {
+        return 1 - Math.pow(1 - t, 3);
+      }
+
+      function checkObstacleCollision(obs) {
+        var r = sim.runner;
+        var halfW = obs.kind === 'train'
+          ? CONFIG.trainHalfWidth
+          : (obs.kind === 'barrier' ? CONFIG.barrierHalfWidth : CONFIG.beamHalfWidth);
+
+        // 1. Lateral check
+        if (Math.abs(r.x - obs.x) >= CONFIG.runnerHalfWidth + halfW) {
+          return false;
+        }
+
+        // 2. Track Y check (obs.y is front edge, obs.y - obs.length is back edge)
+        var runnerFront = CONFIG.runnerY + CONFIG.runnerHalfDepth;
+        var runnerBack = CONFIG.runnerY - CONFIG.runnerHalfDepth;
+        var obsFront = obs.y;
+        var obsBack = obs.y - obs.length;
+        if (runnerBack > obsFront || runnerFront < obsBack) {
+          return false;
+        }
+
+        // 3. Vertical height / slide posture check
+        var runnerBottom = r.z;
+        var runnerHeight = r.isSliding ? CONFIG.runnerSlideHeight : CONFIG.runnerStandHeight;
+        var runnerTop = runnerBottom + runnerHeight;
+
+        if (obs.kind === 'barrier') {
+          return runnerBottom < CONFIG.barrierHeight;
+        }
+        if (obs.kind === 'beam') {
+          return runnerTop > CONFIG.beamUnderClearance && runnerBottom < CONFIG.beamTopHeight;
+        }
+        if (obs.kind === 'train') {
+          return runnerBottom < CONFIG.trainHeight;
+        }
+        return false;
+      }
+
+      function stepSimulation(dt) {
+        if (sim.mode !== 'playing') return;
+
+        sim.stepCount += 1;
+        sim.elapsedRunSec += dt;
+
+        // Ramp speed smoothly up to cap
+        sim.speed = Math.min(CONFIG.maxSpeed, sim.speed + CONFIG.speedRampPerSec * dt);
+
+        var movePx = sim.speed * dt;
+        sim.worldScrollPx += movePx;
+        sim.distance += movePx / CONFIG.pxPerDistanceUnit;
+
+        var r = sim.runner;
+
+        // Lane switch interpolation
+        if (r.isSwitching) {
+          r.switchTimer += dt;
+          var t = Math.min(1, r.switchTimer / CONFIG.laneSwitchTime);
+          var targetX = LANE_CENTERS[r.targetLane];
+          r.x = r.switchStartX + (targetX - r.switchStartX) * easeOutCubic(t);
+          if (t >= 1) {
+            r.x = targetX;
+            r.isSwitching = false;
+          }
+        }
+
+        // Vertical jump physics
+        if (!r.isGrounded) {
+          r.z += r.vz * dt;
+          r.vz -= CONFIG.gravity * dt;
+          if (r.z <= 0) {
+            r.z = 0;
+            r.vz = 0;
+            r.isGrounded = true;
+            r.landSquashTimer = CONFIG.landSquashTime;
+            spawnDustBurst(r.x, CONFIG.runnerY, 5);
+          }
+        }
+
+        // Slide timer (ends after fixed duration)
+        if (r.isSliding) {
+          r.slideTimer -= dt;
+          if (r.slideTimer <= 0) {
+            r.slideTimer = 0;
+            r.isSliding = false;
+          }
+        }
+
+        // Landing squash timer
+        if (r.landSquashTimer > 0) {
+          r.landSquashTimer = Math.max(0, r.landSquashTimer - dt);
+        }
+
+        // Sprint leg/arm cycle
+        var sprintRate = (sim.speed / 195) * Math.PI * 2;
+        r.sprintPhase = (r.sprintPhase + sprintRate * dt) % (Math.PI * 2);
+
+        // Scarf trailing simulation
+        var anchorX = r.x - (r.isSwitching ? (LANE_CENTERS[r.targetLane] - r.x) * 0.15 : 0);
+        var anchorY = CONFIG.runnerY - r.z * 0.78 - (r.isSliding ? 20 : 44);
+        if (r.scarfPoints.length > 0) {
+          r.scarfPoints[0].x = anchorX;
+          r.scarfPoints[0].y = anchorY;
+          for (var sp = 1; sp < r.scarfPoints.length; sp++) {
+            var prev = r.scarfPoints[sp - 1];
+            var curr = r.scarfPoints[sp];
+            var flutter = Math.sin(sim.elapsedRunSec * 16 + sp * 1.1) * 3.5;
+            var targetSX = prev.x + flutter - (r.isSwitching ? (LANE_CENTERS[r.targetLane] - r.x) * 0.12 : 2.5);
+            var targetSY = prev.y + 6.5 + (r.isGrounded ? 0 : r.vz * 0.008);
+            curr.x += (targetSX - curr.x) * Math.min(1, dt * 24);
+            curr.y += (targetSY - curr.y) * Math.min(1, dt * 24);
+          }
+        }
+
+        // Cue timer
+        if (sim.cueTimer > 0) {
+          sim.cueTimer -= dt;
+          if (sim.cueTimer <= 0) {
+            sim.cueTimer = 0;
+            sim.cueText = '';
+            syncCueDom();
+          }
+        }
+
+        // Spawn logic after gentle 2-second opening
+        if (sim.elapsedRunSec >= CONFIG.openingSafeSec) {
+          sim.nextSpawnDistPx -= movePx;
+          if (sim.nextSpawnDistPx <= 0) {
+            spawnNextScheduledPattern();
+          }
+        }
+
+        // Move & check collectibles (single-count guard via collected flag)
+        for (var ci = sim.collectibles.length - 1; ci >= 0; ci--) {
+          var tok = sim.collectibles[ci];
+          tok.y += movePx;
+          tok.spinPhase += dt * 5.2;
+
+          if (!tok.collected) {
+            var dx = Math.abs(r.x - tok.x);
+            var dy = Math.abs(CONFIG.runnerY - tok.y);
+            var runnerMidZ = r.z + (r.isSliding ? 12 : 30);
+            var dz = Math.abs(runnerMidZ - tok.z);
+            if (dx <= CONFIG.tokenGrabRadius && dy <= CONFIG.tokenGrabRadius && dz <= 42) {
+              tok.collected = true;
+              sim.tokens += 1;
+              playSound('token');
+              spawnDustBurst(tok.x, tok.y - tok.z * 0.65, 5);
+            }
+          }
+
+          if (tok.collected || tok.y > CONFIG.logicalHeight + 80) {
+            sim.collectibles.splice(ci, 1);
+          }
+        }
+
+        // Move & check obstacles
+        for (var oi = sim.obstacles.length - 1; oi >= 0; oi--) {
+          var obs = sim.obstacles[oi];
+          obs.y += movePx;
+
+          if (checkObstacleCollision(obs)) {
+            triggerGameOver();
+            return;
+          }
+
+          if (obs.y - obs.length > CONFIG.logicalHeight + 80) {
+            sim.obstacles.splice(oi, 1);
+          }
+        }
+
+        // Update particles
+        for (var pi = sim.particles.length - 1; pi >= 0; pi--) {
+          var p = sim.particles[pi];
+          p.x += p.vx * dt;
+          p.y += p.vy * dt + movePx * 0.45;
+          p.life -= dt;
+          if (p.life <= 0) {
+            sim.particles.splice(pi, 1);
+          }
+        }
+
+        sim.score = Math.floor(sim.distance) + sim.tokens * CONFIG.tokenScore;
+      }
+
+      function triggerGameOver() {
+        sim.mode = 'gameover';
+        sim.score = Math.floor(sim.distance) + sim.tokens * CONFIG.tokenScore;
+        sim.screenShake = 10;
+        sim.runner.crashTimer = 1;
+        spawnCrashSparks(sim.runner.x, CONFIG.runnerY - sim.runner.z * 0.78 - 22);
+        playSound('crash');
+
+        uiState.isNewBest = false;
+        if (sim.score > uiState.bestScore) {
+          uiState.bestScore = sim.score;
+          uiState.isNewBest = true;
+          writeBestScore(uiState.bestScore);
+        }
+        lastTimestamp = null;
+        pendingInitialPulse = false;
+        syncAllUi();
+      }
+
+      // =========================================================================
+      // === 6. DRAWING (ORIGINAL HAND-DRAWN RAIL YARD & STICKMAN) ===
+      // =========================================================================
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d');
+
+      function drawRailYard() {
+        var W = CONFIG.logicalWidth;
+        var H = CONFIG.logicalHeight;
+
+        // Concrete flanking platforms
+        ctx.fillStyle = PALETTE.platformConcrete;
+        ctx.fillRect(0, 0, W, H);
+
+        // Subtle concrete slab joints scrolling down
+        var slabSpacing = 96;
+        var slabOffset = sim.worldScrollPx % slabSpacing;
+        ctx.strokeStyle = 'rgba(91, 102, 115, 0.35)';
+        ctx.lineWidth = 1.5;
+        for (var sy = slabOffset - slabSpacing; sy < H + slabSpacing; sy += slabSpacing) {
+          ctx.beginPath();
+          ctx.moveTo(0, sy);
+          ctx.lineTo(CONFIG.trackLeft, sy);
+          ctx.moveTo(CONFIG.trackRight, sy);
+          ctx.lineTo(W, sy);
+          ctx.stroke();
+        }
+
+        // Platform curb borders with amber safety edge dashes
+        ctx.fillStyle = PALETTE.platformEdge;
+        ctx.fillRect(CONFIG.trackLeft - 8, 0, 8, H);
+        ctx.fillRect(CONFIG.trackRight, 0, 8, H);
+
+        var dashPeriod = 48;
+        var dashOffset = sim.worldScrollPx % dashPeriod;
+        ctx.fillStyle = PALETTE.amber;
+        for (var dy = dashOffset - dashPeriod; dy < H + dashPeriod; dy += dashPeriod) {
+          ctx.fillRect(CONFIG.trackLeft - 6, dy, 4, 22);
+          ctx.fillRect(CONFIG.trackRight + 2, dy, 4, 22);
+        }
+
+        // Main rail bed
+        ctx.fillStyle = PALETTE.ballast;
+        ctx.fillRect(CONFIG.trackLeft, 0, CONFIG.trackRight - CONFIG.trackLeft, H);
+
+        // Lane dividers (subtle ballast seam)
+        ctx.strokeStyle = PALETTE.ballastDark;
+        ctx.lineWidth = 2;
+        for (var d = 1; d < CONFIG.laneCount; d++) {
+          var divX = CONFIG.trackLeft + LANE_WIDTH * d;
+          ctx.beginPath();
+          ctx.moveTo(divX, 0);
+          ctx.lineTo(divX, H);
+          ctx.stroke();
+        }
+
+        // Wooden / concrete rail ties per lane
+        var tieSpacing = 34;
+        var tieOffset = sim.worldScrollPx % tieSpacing;
+        var tieIndexBase = Math.floor(sim.worldScrollPx / tieSpacing);
+
+        for (var l = 0; l < CONFIG.laneCount; l++) {
+          var cx = LANE_CENTERS[l];
+          var tieW = 76;
+          var railOffset = 25;
+
+          for (var ty = tieOffset - tieSpacing, idx = 0; ty < H + tieSpacing; ty += tieSpacing, idx++) {
+            var worldIdx = tieIndexBase - idx;
+            // Deterministic tiny hand-drawn wobble per tie
+            var wobble = ((Math.sin(worldIdx * 12.9898 + l * 78.233) * 43758.5453) % 1) * 2.2;
+            ctx.fillStyle = PALETTE.tieWood;
+            ctx.fillRect(cx - tieW / 2 + wobble, ty - 4, tieW, 8);
+            ctx.strokeStyle = PALETTE.ink;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(cx - tieW / 2 + wobble, ty - 4, tieW, 8);
+          }
+
+          // Twin steel rails per lane
+          for (var side = -1; side <= 1; side += 2) {
+            var rx = cx + side * railOffset;
+            ctx.fillStyle = PALETTE.railSteel;
+            ctx.fillRect(rx - 3, 0, 6, H);
+            ctx.fillStyle = PALETTE.railHighlight;
+            ctx.fillRect(rx - 1, 0, 2, H);
+          }
+        }
+
+        // Side distance markers every 100 units on left concrete apron
+        var markerStepPx = 200;
+        var markerStart = Math.floor(sim.worldScrollPx / markerStepPx) * markerStepPx;
+        ctx.fillStyle = PALETTE.inkBlue;
+        ctx.font = '700 10px ui-monospace, SFMono-Regular, monospace';
+        ctx.textAlign = 'center';
+        for (var m = markerStart - 200; m <= sim.worldScrollPx + H + 200; m += markerStepPx) {
+          if (m <= 0) continue;
+          var screenY = CONFIG.runnerY - (m - sim.worldScrollPx);
+          if (screenY < -20 || screenY > H + 20) continue;
+          var label = Math.round(m / CONFIG.pxPerDistanceUnit) + 'm';
+          ctx.fillStyle = 'rgba(31, 51, 74, 0.72)';
+          ctx.fillRect(4, screenY - 9, 28, 16);
+          ctx.fillStyle = '#e7ecf0';
+          ctx.fillText(label, 18, screenY + 3);
+        }
+      }
+
+      function drawToken(tok) {
+        var groundY = tok.y;
+        var bob = Math.sin(tok.spinPhase) * 3;
+        var screenY = groundY - tok.z * 0.78 + bob;
+        var spinWidth = Math.max(0.28, Math.abs(Math.cos(tok.spinPhase)));
+
+        // Ground shadow
+        ctx.fillStyle = 'rgba(10, 15, 22, 0.42)';
+        ctx.beginPath();
+        ctx.ellipse(tok.x, groundY + 4, 10, 4.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Brass/amber token coin
+        ctx.save();
+        ctx.translate(tok.x, screenY);
+        ctx.scale(spinWidth, 1);
+
+        ctx.fillStyle = PALETTE.amberBright;
+        ctx.strokeStyle = PALETTE.ink;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.arc(0, 0, CONFIG.tokenRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Inner diamond stamp
+        ctx.fillStyle = PALETTE.amberDark;
+        ctx.beginPath();
+        ctx.moveTo(0, -6);
+        ctx.lineTo(5, 0);
+        ctx.lineTo(0, 6);
+        ctx.lineTo(-5, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      function drawBarrier(obs) {
+        var x = obs.x;
+        var y = obs.y; // front bottom edge
+        var w = CONFIG.barrierHalfWidth * 2;
+        var h = 34;
+
+        // Ground shadow
+        ctx.fillStyle = 'rgba(10, 15, 22, 0.45)';
+        ctx.fillRect(x - w / 2 - 4, y - 6, w + 8, 12);
+
+        // Sawhorse legs
+        ctx.strokeStyle = PALETTE.ink;
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(x - w / 2 + 8, y);
+        ctx.lineTo(x - w / 2 + 12, y - h);
+        ctx.moveTo(x + w / 2 - 8, y);
+        ctx.lineTo(x + w / 2 - 12, y - h);
+        ctx.stroke();
+
+        // Crossbar with amber-and-ink hazard stripes
+        var barY = y - h;
+        var barH = 18;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(x - w / 2, barY, w, barH, 4);
+        ctx.clip();
+
+        ctx.fillStyle = PALETTE.amber;
+        ctx.fillRect(x - w / 2, barY, w, barH);
+
+        ctx.fillStyle = PALETTE.inkBlue;
+        for (var sx = -w; sx < w; sx += 18) {
+          ctx.beginPath();
+          ctx.moveTo(x + sx, barY);
+          ctx.lineTo(x + sx + 9, barY);
+          ctx.lineTo(x + sx + 2, barY + barH);
+          ctx.lineTo(x + sx - 7, barY + barH);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+
+        ctx.strokeStyle = PALETTE.ink;
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.roundRect(x - w / 2, barY, w, barH, 4);
+        ctx.stroke();
+      }
+
+      function drawOverheadBeam(obs) {
+        var x = obs.x;
+        var y = obs.y;
+        var w = CONFIG.beamHalfWidth * 2 + 8;
+
+        // Ground shadow strip showing where the beam sits along the track
+        ctx.fillStyle = 'rgba(10, 15, 22, 0.45)';
+        ctx.fillRect(x - w / 2, y - 10, w, 14);
+
+        // Support stanchions at left & right edges (clear central underpass!)
+        var postH = 74;
+        ctx.fillStyle = PALETTE.inkBlue;
+        ctx.strokeStyle = PALETTE.ink;
+        ctx.lineWidth = 2.2;
+        ctx.fillRect(x - w / 2, y - postH, 8, postH);
+        ctx.strokeRect(x - w / 2, y - postH, 8, postH);
+        ctx.fillRect(x + w / 2 - 8, y - postH, 8, postH);
+        ctx.strokeRect(x + w / 2 - 8, y - postH, 8, postH);
+
+        // Elevated crossbeam (clearly high off ground with open gap underneath!)
+        var beamTop = y - postH;
+        var beamH = 30;
+        ctx.fillStyle = PALETTE.concreteMid || '#8f99a4';
+        ctx.fillRect(x - w / 2 - 4, beamTop, w + 8, beamH);
+
+        // Amber bottom clearance trim & chevron sign
+        ctx.fillStyle = PALETTE.amber;
+        ctx.fillRect(x - w / 2 - 4, beamTop + beamH - 7, w + 8, 7);
+
+        ctx.strokeStyle = PALETTE.ink;
+        ctx.lineWidth = 2.4;
+        ctx.strokeRect(x - w / 2 - 4, beamTop, w + 8, beamH);
+
+        // Downward "DUCK" chevron indicator
+        ctx.strokeStyle = PALETTE.ink;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(x - 8, beamTop + 8);
+        ctx.lineTo(x, beamTop + 16);
+        ctx.lineTo(x + 8, beamTop + 8);
+        ctx.stroke();
+      }
+
+      function drawTrain(obs) {
+        var x = obs.x;
+        var frontY = obs.y;
+        var backY = obs.y - obs.length;
+        var w = CONFIG.trainHalfWidth * 2;
+        var cabHeight = 28; // elevated front nose height
+
+        // Ground shadow
+        ctx.fillStyle = 'rgba(8, 12, 18, 0.55)';
+        ctx.fillRect(x - w / 2 - 5, backY - cabHeight + 6, w + 10, obs.length + cabHeight);
+
+        // Train body top deck
+        ctx.fillStyle = PALETTE.trainBody;
+        ctx.strokeStyle = PALETTE.ink;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.roundRect(x - w / 2, backY - cabHeight, w, obs.length, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        // Raised roof spine
+        ctx.fillStyle = PALETTE.trainRoof;
+        ctx.fillRect(x - w / 2 + 10, backY - cabHeight + 8, w - 20, obs.length - 22);
+        ctx.strokeStyle = 'rgba(16, 24, 34, 0.45)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x - w / 2 + 10, backY - cabHeight + 8, w - 20, obs.length - 22);
+
+        // Side amber stripes
+        ctx.fillStyle = PALETTE.trainStripe;
+        ctx.fillRect(x - w / 2 + 3, backY - cabHeight + 10, 4, obs.length - 18);
+        ctx.fillRect(x + w / 2 - 7, backY - cabHeight + 10, 4, obs.length - 18);
+
+        // Front locomotive face (closest to player!)
+        var faceTop = frontY - cabHeight;
+        ctx.fillStyle = '#1b2b3d';
+        ctx.strokeStyle = PALETTE.ink;
+        ctx.lineWidth = 2.5;
+        ctx.fillRect(x - w / 2, faceTop, w, cabHeight);
+        ctx.strokeRect(x - w / 2, faceTop, w, cabHeight);
+
+        // Windshield
+        ctx.fillStyle = '#9ac0d9';
+        ctx.fillRect(x - w / 2 + 10, faceTop + 5, w - 20, 10);
+        ctx.strokeRect(x - w / 2 + 10, faceTop + 5, w - 20, 10);
+
+        // Amber bumper stripe & headlights
+        ctx.fillStyle = PALETTE.amber;
+        ctx.fillRect(x - w / 2 + 2, frontY - 6, w - 4, 4);
+
+        ctx.fillStyle = '#fff5cc';
+        ctx.beginPath();
+        ctx.arc(x - w / 2 + 13, frontY - 10, 3.5, 0, Math.PI * 2);
+        ctx.arc(x + w / 2 - 13, frontY - 10, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Subtle headlight cone on tracks
+        var grad = ctx.createLinearGradient(x, frontY, x, frontY + 46);
+        grad.addColorStop(0, 'rgba(255, 224, 130, 0.28)');
+        grad.addColorStop(1, 'rgba(255, 224, 130, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(x - 24, frontY);
+        ctx.lineTo(x + 24, frontY);
+        ctx.lineTo(x + 38, frontY + 46);
+        ctx.lineTo(x - 38, frontY + 46);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      function drawStickman() {
+        var r = sim.runner;
+        var groundX = r.x;
+        var groundY = CONFIG.runnerY;
+        var zFactor = Math.min(1, r.z / 115);
+
+        // 1. Ground shadow (stays on track to show exact landing spot)
+        var shadowRx = (r.isSliding ? 22 : 16) * (1 - zFactor * 0.42);
+        var shadowRy = (r.isSliding ? 8 : 6.5) * (1 - zFactor * 0.42);
+        ctx.fillStyle = 'rgba(8, 12, 18, ' + (0.48 - zFactor * 0.22).toFixed(2) + ')';
+        ctx.beginPath();
+        ctx.ellipse(groundX, groundY + 4, shadowRx, shadowRy, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Height cue line when airborne
+        var screenY = groundY - r.z * 0.78;
+        if (r.z > 4) {
+          ctx.save();
+          ctx.setLineDash([3, 4]);
+          ctx.strokeStyle = 'rgba(255, 209, 102, 0.55)';
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.moveTo(groundX, groundY + 2);
+          ctx.lineTo(groundX, screenY + 4);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 2. Trailing bright red scarf
+        if (r.scarfPoints.length > 1) {
+          ctx.save();
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.strokeStyle = PALETTE.ink;
+          ctx.lineWidth = 8.5;
+          ctx.beginPath();
+          ctx.moveTo(r.scarfPoints[0].x, r.scarfPoints[0].y);
+          for (var si = 1; si < r.scarfPoints.length; si++) {
+            ctx.lineTo(r.scarfPoints[si].x, r.scarfPoints[si].y);
+          }
+          ctx.stroke();
+
+          ctx.strokeStyle = PALETTE.scarf;
+          ctx.lineWidth = 5.5;
+          ctx.stroke();
+
+          ctx.strokeStyle = PALETTE.scarfBright;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 3. Stickman figure with state-specific poses
+        var laneLean = r.isSwitching ? (LANE_CENTERS[r.targetLane] - r.x) * 0.08 : 0;
+        var squash = r.landSquashTimer > 0 ? Math.sin((r.landSquashTimer / CONFIG.landSquashTime) * Math.PI) * 7 : 0;
+
+        ctx.save();
+        ctx.translate(groundX, screenY);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // Pose joints relative to foot ground contact (0, 0)
+        var hip, shoulder, head, kneeL, footL, kneeR, footR, elbowL, handL, elbowR, handR;
+
+        if (sim.mode === 'gameover') {
+          // Crash recoil pose
+          hip = { x: -4, y: -14 };
+          shoulder = { x: -16, y: -26 };
+          head = { x: -24, y: -33 };
+          kneeL = { x: 8, y: -22 };
+          footL = { x: 18, y: -10 };
+          kneeR = { x: 4, y: -6 };
+          footR = { x: 14, y: 2 };
+          elbowL = { x: -24, y: -16 };
+          handL = { x: -30, y: -6 };
+          elbowR = { x: -8, y: -36 };
+          handR = { x: 2, y: -42 };
+        } else if (r.isSliding) {
+          // Unmistakable low slide pose
+          hip = { x: -4, y: -9 };
+          shoulder = { x: -15, y: -18 };
+          head = { x: -20, y: -26 };
+          kneeL = { x: 10, y: -7 };
+          footL = { x: 24, y: -3 };
+          kneeR = { x: 3, y: -3 };
+          footR = { x: 12, y: 1 };
+          elbowL = { x: -24, y: -14 };
+          handL = { x: -30, y: -8 };
+          elbowR = { x: -6, y: -15 };
+          handR = { x: 3, y: -11 };
+        } else if (!r.isGrounded) {
+          // Tucked knees in the air (Stickman Hook style)
+          hip = { x: laneLean * 0.4, y: -22 };
+          shoulder = { x: laneLean * 0.8 + 3, y: -42 };
+          head = { x: laneLean + 5, y: -53 };
+          kneeL = { x: -9 + laneLean * 0.4, y: -13 };
+          footL = { x: -12 + laneLean * 0.3, y: -3 };
+          kneeR = { x: 11 + laneLean * 0.4, y: -14 };
+          footR = { x: 12 + laneLean * 0.3, y: -4 };
+          elbowL = { x: -12 + laneLean, y: -46 };
+          handL = { x: -17 + laneLean, y: -56 };
+          elbowR = { x: 15 + laneLean, y: -45 };
+          handR = { x: 20 + laneLean, y: -55 };
+        } else {
+          // Forward-leaning sprint with alternating arm & leg swings
+          var ph = r.sprintPhase;
+          var swingA = Math.sin(ph);
+          var swingB = Math.cos(ph);
+          var bobY = Math.abs(Math.cos(ph)) * 3.5 - squash;
+
+          hip = { x: laneLean * 0.3, y: -26 + bobY };
+          shoulder = { x: laneLean * 0.8 + 4, y: -46 + bobY };
+          head = { x: laneLean + 6, y: -57 + bobY };
+
+          kneeL = { x: -6 + swingA * 5 + laneLean * 0.2, y: -14 + Math.max(0, swingB) * 4 };
+          footL = { x: -6 + swingA * 3, y: -1 - Math.max(0, swingB) * 7 };
+
+          kneeR = { x: 6 - swingA * 5 + laneLean * 0.2, y: -14 + Math.max(0, -swingB) * 4 };
+          footR = { x: 6 - swingA * 3, y: -1 - Math.max(0, -swingB) * 7 };
+
+          elbowL = { x: shoulder.x - 10, y: shoulder.y + 8 - swingA * 5 };
+          handL = { x: elbowL.x - 3, y: elbowL.y - 6 - swingA * 4 };
+
+          elbowR = { x: shoulder.x + 10, y: shoulder.y + 8 + swingA * 5 };
+          handR = { x: elbowR.x + 3, y: elbowR.y - 6 + swingA * 4 };
+        }
+
+        function drawLimb(a, b, c, color, width) {
+          ctx.strokeStyle = color;
+          ctx.lineWidth = width;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.lineTo(c.x, c.y);
+          ctx.stroke();
+        }
+
+        // White crisp outline halo so stickman always pops against dark ballast
+        var haloColor = 'rgba(244, 246, 248, 0.85)';
+        drawLimb(hip, kneeL, footL, haloColor, 7.5);
+        drawLimb(hip, kneeR, footR, haloColor, 7.5);
+        drawLimb(shoulder, elbowL, handL, haloColor, 6.8);
+        drawLimb(shoulder, elbowR, handR, haloColor, 6.8);
+        ctx.strokeStyle = haloColor;
+        ctx.lineWidth = 8.2;
+        ctx.beginPath();
+        ctx.moveTo(hip.x, hip.y);
+        ctx.lineTo(shoulder.x, shoulder.y);
+        ctx.stroke();
+
+        // Dark ink core strokes
+        drawLimb(hip, kneeL, footL, PALETTE.ink, 4.2);
+        drawLimb(hip, kneeR, footR, PALETTE.ink, 4.2);
+        drawLimb(shoulder, elbowL, handL, PALETTE.ink, 3.6);
+        drawLimb(shoulder, elbowR, handR, PALETTE.ink, 3.6);
+
+        // Torso
+        ctx.strokeStyle = PALETTE.ink;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(hip.x, hip.y);
+        ctx.lineTo(shoulder.x, shoulder.y);
+        ctx.stroke();
+
+        // Head + scarf collar knot
+        ctx.fillStyle = '#f8fafc';
+        ctx.strokeStyle = PALETTE.ink;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(head.x, head.y, 7.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Red scarf collar around neck
+        ctx.fillStyle = PALETTE.scarf;
+        ctx.beginPath();
+        ctx.ellipse(shoulder.x, shoulder.y + 1, 5.5, 3.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      function drawParticles() {
+        for (var i = 0; i < sim.particles.length; i++) {
+          var p = sim.particles[i];
+          var alpha = Math.max(0, p.life / p.maxLife);
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      function renderScene() {
+        ctx.save();
+        ctx.setTransform(canvasScaleX, 0, 0, canvasScaleY, 0, 0);
+
+        if (sim.screenShake > 0) {
+          var sx = (Math.random() - 0.5) * sim.screenShake;
+          var sy = (Math.random() - 0.5) * sim.screenShake;
+          ctx.translate(sx, sy);
+          sim.screenShake = Math.max(0, sim.screenShake - 0.65);
+        }
+
+        drawRailYard();
+
+        // Draw low ground items and tokens first, sorted by Y
+        var drawList = [];
+        for (var i = 0; i < sim.collectibles.length; i++) {
+          drawList.push({ sortY: sim.collectibles[i].y, type: 'token', item: sim.collectibles[i] });
+        }
+        for (var j = 0; j < sim.obstacles.length; j++) {
+          drawList.push({ sortY: sim.obstacles[j].y, type: sim.obstacles[j].kind, item: sim.obstacles[j] });
+        }
+        drawList.push({ sortY: CONFIG.runnerY + 1, type: 'runner', item: null });
+
+        drawList.sort(function (a, b) {
+          return a.sortY - b.sortY;
+        });
+
+        for (var k = 0; k < drawList.length; k++) {
+          var entry = drawList[k];
+          if (entry.type === 'token') drawToken(entry.item);
+          else if (entry.type === 'barrier') drawBarrier(entry.item);
+          else if (entry.type === 'beam') drawOverheadBeam(entry.item);
+          else if (entry.type === 'train') drawTrain(entry.item);
+          else if (entry.type === 'runner') drawStickman();
+        }
+
+        drawParticles();
+        ctx.restore();
+      }
+
+      // =========================================================================
+      // === 7. LIFECYCLE, UI, RESIZING & MAIN LOOP ===
+      // =========================================================================
+      const dom = {
+        hud: document.getElementById('hud'),
+        hudScore: document.getElementById('hudScore'),
+        hudTokens: document.getElementById('hudTokens'),
+        cueBanner: document.getElementById('cueBanner'),
+        touchControls: document.getElementById('touchControls'),
+        titleOverlay: document.getElementById('titleOverlay'),
+        pauseOverlay: document.getElementById('pauseOverlay'),
+        gameOverOverlay: document.getElementById('gameOverOverlay'),
+        titleBestScore: document.getElementById('titleBestScore'),
+        pauseReason: document.getElementById('pauseReason'),
+        newBestBadge: document.getElementById('newBestBadge'),
+        goScore: document.getElementById('goScore'),
+        goBest: document.getElementById('goBest'),
+        goDistance: document.getElementById('goDistance'),
+        goTokens: document.getElementById('goTokens'),
+        btnPlay: document.getElementById('btnPlay'),
+        btnRetry: document.getElementById('btnRetry'),
+        btnResume: document.getElementById('btnResume'),
+        btnPause: document.getElementById('btnPause'),
+        btnRestartFromPause: document.getElementById('btnRestartFromPause'),
+        btnTitleFromPause: document.getElementById('btnTitleFromPause'),
+        btnTitleFromGameOver: document.getElementById('btnTitleFromGameOver'),
+        btnTogglePadTitle: document.getElementById('btnTogglePadTitle'),
+        btnTogglePadPause: document.getElementById('btnTogglePadPause'),
+        btnTogglePadHud: document.getElementById('btnTogglePadHud'),
+        btnToggleSoundTitle: document.getElementById('btnToggleSoundTitle'),
+        btnToggleSoundPause: document.getElementById('btnToggleSoundPause'),
+        btnToggleSoundHud: document.getElementById('btnToggleSoundHud')
+      };
+
+      var canvasScaleX = 1;
+      var canvasScaleY = 1;
+
+      function resizeCanvas() {
+        var wrap = document.getElementById('stageWrap');
+        var rect = wrap.getBoundingClientRect();
+        var dpr = Math.min(window.devicePixelRatio || 1, 3);
+        var w = Math.max(1, Math.floor(rect.width));
+        var h = Math.max(1, Math.floor(rect.height));
+
+        canvas.width = Math.round(w * dpr);
+        canvas.height = Math.round(h * dpr);
+        canvasScaleX = canvas.width / CONFIG.logicalWidth;
+        canvasScaleY = canvas.height / CONFIG.logicalHeight;
+        syncPadVisibility();
+      }
+
+      function syncCueDom() {
+        if (sim.cueText && sim.mode === 'playing') {
+          dom.cueBanner.textContent = sim.cueText;
+          dom.cueBanner.classList.add('visible');
+        } else {
+          dom.cueBanner.classList.remove('visible');
+        }
+      }
+
+      function syncPadVisibility() {
+        var show = sim.mode === 'playing' && shouldShowPad();
+        dom.touchControls.hidden = !show;
+        var label = uiState.padMode === 'auto'
+          ? 'Buttons: Auto'
+          : (uiState.padMode === 'on' ? 'Buttons: On' : 'Buttons: Off');
+        dom.btnTogglePadTitle.textContent = label;
+        dom.btnTogglePadPause.textContent = label;
+        dom.btnTogglePadHud.textContent = shouldShowPad() ? 'Pad:On' : 'Pad:Off';
+      }
+
+      function syncSoundLabels() {
+        var label = uiState.soundEnabled ? 'Sound: On' : 'Sound: Off';
+        dom.btnToggleSoundTitle.textContent = label;
+        dom.btnToggleSoundPause.textContent = label;
+        dom.btnToggleSoundHud.textContent = uiState.soundEnabled ? 'SFX' : 'Mute';
+      }
+
+      function syncHudValues() {
+        dom.hudScore.textContent = String(sim.score);
+        dom.hudTokens.textContent = String(sim.tokens);
+      }
+
+      function syncAllUi() {
+        document.body.classList.toggle('playing-lock', sim.mode === 'playing');
+        dom.titleOverlay.hidden = sim.mode !== 'title';
+        dom.pauseOverlay.hidden = sim.mode !== 'paused';
+        dom.gameOverOverlay.hidden = sim.mode !== 'gameover';
+        dom.hud.hidden = sim.mode !== 'playing';
+
+        dom.titleBestScore.textContent = String(uiState.bestScore);
+        dom.pauseReason.textContent = uiState.pauseReason;
+        dom.newBestBadge.hidden = !uiState.isNewBest;
+        dom.goScore.textContent = String(sim.score);
+        dom.goBest.textContent = String(uiState.bestScore);
+        dom.goDistance.textContent = String(Math.floor(sim.distance));
+        dom.goTokens.textContent = String(sim.tokens);
+
+        syncHudValues();
+        syncCueDom();
+        syncPadVisibility();
+        syncSoundLabels();
+      }
+
+      var lastTimestamp = null;
+      var accumulator = 0;
+      var pendingInitialPulse = false;
+
+      function initRunState(customSeed) {
+        var seed = customSeed !== undefined && customSeed !== null
+          ? customSeed
+          : (sim.seed !== null ? sim.seed : ((Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0));
+
+        sim.rng = createRng(seed);
+        sim.elapsedRunSec = 0;
+        sim.speed = CONFIG.baseSpeed;
+        sim.worldScrollPx = 0;
+        sim.distance = 0;
+        sim.tokens = 0;
+        sim.score = 0;
+        sim.stepCount = 0;
+
+        sim.runner.lane = 1;
+        sim.runner.targetLane = 1;
+        sim.runner.x = LANE_CENTERS[1];
+        sim.runner.switchStartX = LANE_CENTERS[1];
+        sim.runner.switchTimer = 0;
+        sim.runner.isSwitching = false;
+        sim.runner.z = 0;
+        sim.runner.vz = 0;
+        sim.runner.isGrounded = true;
+        sim.runner.slideTimer = 0;
+        sim.runner.isSliding = false;
+        sim.runner.landSquashTimer = 0;
+        sim.runner.sprintPhase = 0;
+        sim.runner.crashTimer = 0;
+        resetScarfPoints();
+
+        sim.obstacles = [];
+        sim.collectibles = [];
+        sim.particles = [];
+        sim.nextSpawnDistPx = 0;
+        sim.exitCooldowns = [0, 0, 0];
+        sim.patternStep = 0;
+        sim.introStage = 0;
+        sim.cueText = '';
+        sim.cueTimer = 0;
+        sim.screenShake = 0;
+        sim.nextObstacleId = 1;
+
+        spawnOpeningTokenTrail();
+      }
+
+      function startNewRun() {
+        initRunState();
+        sim.mode = 'playing';
+        lastTimestamp = null;
+        accumulator = 0;
+        pendingInitialPulse = true;
+        if (document.activeElement && document.activeElement.blur) {
+          document.activeElement.blur();
+        }
+        syncAllUi();
+      }
+
+      function pauseGame(reason) {
+        if (sim.mode !== 'playing') return;
+        sim.mode = 'paused';
+        uiState.pauseReason = reason || 'Take a breather on the ties.';
+        lastTimestamp = null;
+        accumulator = 0;
+        pendingInitialPulse = false;
+        syncAllUi();
+        dom.btnResume.focus();
+      }
+
+      function resumeGame() {
+        if (sim.mode !== 'paused') return;
+        sim.mode = 'playing';
+        lastTimestamp = null;
+        accumulator = 0;
+        if (document.activeElement && document.activeElement.blur) {
+          document.activeElement.blur();
+        }
+        syncAllUi();
+      }
+
+      function returnToTitle() {
+        initRunState();
+        sim.mode = 'title';
+        lastTimestamp = null;
+        accumulator = 0;
+        pendingInitialPulse = false;
+        syncAllUi();
+        dom.btnPlay.focus();
+      }
+
+      function togglePadMode() {
+        if (uiState.padMode === 'auto') uiState.padMode = 'on';
+        else if (uiState.padMode === 'on') uiState.padMode = 'off';
+        else uiState.padMode = 'auto';
+        syncPadVisibility();
+      }
+
+      function toggleSound() {
+        uiState.soundEnabled = !uiState.soundEnabled;
+        syncSoundLabels();
+      }
+
+      function processTimestamp(timestamp) {
+        if (sim.mode === 'playing') {
+          if (pendingInitialPulse) {
+            pendingInitialPulse = false;
+            stepSimulation(CONFIG.fixedDt);
+          }
+          if (lastTimestamp === null) {
+            lastTimestamp = timestamp;
+          } else {
+            var rawDt = Math.max(0, (timestamp - lastTimestamp) / 1000);
+            lastTimestamp = timestamp;
+            var clampedDt = Math.min(rawDt, CONFIG.maxFrameDt);
+            accumulator += clampedDt;
+            while (accumulator + CONFIG.stepEps >= CONFIG.fixedDt) {
+              stepSimulation(CONFIG.fixedDt);
+              accumulator -= CONFIG.fixedDt;
+              if (accumulator < 0) accumulator = 0;
+              if (sim.mode !== 'playing') break;
+            }
+          }
+          syncHudValues();
+        } else if (sim.mode === 'title') {
+          // Gentle idle animation on title screen without advancing distance/score
+          sim.runner.sprintPhase = (timestamp / 1000) * 6.5;
+          sim.worldScrollPx = (timestamp / 1000) * 60;
+          resetScarfPoints();
+        }
+        renderScene();
+      }
+
+      function rafLoop(timestamp) {
+        processTimestamp(timestamp);
+        window.requestAnimationFrame(rafLoop);
+      }
+
+      function bindUiEvents() {
+        dom.btnPlay.addEventListener('click', startNewRun);
+        dom.btnRetry.addEventListener('click', startNewRun);
+        dom.btnResume.addEventListener('click', resumeGame);
+        dom.btnPause.addEventListener('click', function () {
+          pauseGame('Paused by player.');
+        });
+        dom.btnRestartFromPause.addEventListener('click', startNewRun);
+        dom.btnTitleFromPause.addEventListener('click', returnToTitle);
+        dom.btnTitleFromGameOver.addEventListener('click', returnToTitle);
+
+        dom.btnTogglePadTitle.addEventListener('click', togglePadMode);
+        dom.btnTogglePadPause.addEventListener('click', togglePadMode);
+        dom.btnTogglePadHud.addEventListener('click', togglePadMode);
+
+        dom.btnToggleSoundTitle.addEventListener('click', toggleSound);
+        dom.btnToggleSoundPause.addEventListener('click', toggleSound);
+        dom.btnToggleSoundHud.addEventListener('click', toggleSound);
+
+        document.addEventListener('visibilitychange', function () {
+          if (document.hidden && sim.mode === 'playing') {
+            pauseGame('Paused while tab was in the background.');
+          }
+        });
+
+        window.addEventListener('pagehide', function () {
+          if (sim.mode === 'playing') {
+            pauseGame('Paused while page was hidden.');
+          }
+        });
+
+        window.addEventListener('resize', resizeCanvas);
+      }
+
+      // Check optional ?seed= query param for repeatable runs
+      try {
+        var params = new URLSearchParams(window.location.search);
+        if (params.has('seed')) {
+          var parsed = parseInt(params.get('seed'), 10);
+          if (Number.isFinite(parsed)) sim.seed = parsed >>> 0;
+        }
+      } catch (err) {
+        // Ignore URL parsing errors
+      }
+
+      // Public inspection & deterministic verification hook
+      window.SticklineSprint = {
+        CONFIG: CONFIG,
+        PATTERNS: PATTERNS,
+        getState: function () {
+          return {
+            mode: sim.mode,
+            speed: sim.speed,
+            distance: sim.distance,
+            tokens: sim.tokens,
+            score: sim.score,
+            bestScore: uiState.bestScore,
+            stepCount: sim.stepCount,
+            worldScrollPx: sim.worldScrollPx,
+            runner: {
+              lane: sim.runner.lane,
+              targetLane: sim.runner.targetLane,
+              x: sim.runner.x,
+              z: sim.runner.z,
+              isGrounded: sim.runner.isGrounded,
+              isSliding: sim.runner.isSliding
+            },
+            obstacleCount: sim.obstacles.length,
+            collectibleCount: sim.collectibles.length,
+            obstacles: sim.obstacles.map(function (o) {
+              return { id: o.id, kind: o.kind, lane: o.lane, y: o.y, length: o.length };
+            })
+          };
+        },
+        setSeed: function (seed) {
+          sim.seed = seed === null ? null : (seed >>> 0);
+        },
+        runSeededFairnessCheck: runSeededFairnessCheck,
+        verifyPatternReachability: verifyPatternReachability,
+        stepAtTimestamp: processTimestamp,
+        startNewRun: startNewRun,
+        pauseGame: pauseGame,
+        resumeGame: resumeGame,
+        queueAction: queueAction
+      };
+
+      // Boot
+      initRunState();
+      setupInput();
+      bindUiEvents();
+      resizeCanvas();
+      syncAllUi();
+      renderScene();
+      window.requestAnimationFrame(rafLoop);
+    })();
+  </script>
+</body>
+</html>
